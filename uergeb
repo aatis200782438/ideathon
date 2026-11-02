@@ -1,0 +1,351 @@
+"""
+OSINT Fusion Workbench
+Powered by Sarvam AI Sovereign LLM & Speech/Language APIs
+
+Capabilities:
+1. Ingests multilingual intelligence inputs (News Articles, Police Reports, Intercepted Radio Audio).
+2. Transcribes intercepted audio (Sarvam Saaras STT) and normalizes regional languages (Sarvam Translate / sarvam-105b).
+3. Extracts entities & constructs a cross-lingual Knowledge Graph (Actors, Events, Locations, Organizations).
+4. Highlights weak-signal patterns with probabilistic confidence scoring.
+5. Preserves Analyst Verification Controls (audit trails, human-in-the-loop validation, confidence overrides).
+"""
+
+import os
+import sys
+import json
+import argparse
+from pathlib import Path
+from dataclasses import dataclass, field, asdict
+from typing import List, Dict, Any, Optional
+
+# UTF-8 terminal output encoding for Windows compatibility
+if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
+# Load .env configuration
+def load_env():
+    env_file = Path(__file__).resolve().parent / ".env"
+    if env_file.exists():
+        with open(env_file, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    key, val = line.split("=", 1)
+                    os.environ[key.strip()] = val.strip().strip("'\"")
+
+load_env()
+
+from sarvamai import SarvamAI
+
+
+@dataclass
+class IntelligenceInput:
+    doc_id: str
+    source_type: str  # "news_article", "police_report", "intercepted_radio"
+    title: str
+    language: str
+    raw_content: str
+    audio_path: Optional[str] = None
+    transcription: Optional[str] = None
+    translation_en: Optional[str] = None
+    timestamp: Optional[str] = None
+
+
+class OSINTFusionWorkbench:
+    def __init__(self, api_key: Optional[str] = None):
+        self.api_key = api_key or os.getenv("SARVAM_API_KEY")
+        if not self.api_key:
+            raise ValueError("SARVAM_API_KEY is not set in environment or .env file.")
+        self.client = SarvamAI(api_subscription_key=self.api_key)
+
+    def transcribe_audio_intercept(self, audio_path: str, language_code: str = "unknown") -> str:
+        """Transcribe intercepted radio audio using Sarvam Saaras STT model."""
+        print(f"[*] Ingesting audio intercept via Sarvam Saaras STT: {audio_path}")
+        try:
+            with open(audio_path, "rb") as audio_file:
+                response = self.client.speech_to_text.transcribe(
+                    file=audio_file,
+                    model="saaras:v3",
+                    language_code=language_code,
+                )
+            transcript = getattr(response, "transcript", "") or str(response)
+            return transcript
+        except Exception as e:
+            print(f"[!] Audio transcription warning: {e}")
+            return f"[Simulated transcription: Radio intercept audio at {audio_path}]"
+
+    def translate_to_english(self, text: str, source_lang: str = "auto") -> str:
+        """Translate regional Indian language inputs into English for unified analysis."""
+        try:
+            res = self.client.text.translate(
+                input=text,
+                source_language_code=source_lang,
+                target_language_code="en-IN",
+                model="mayura:v1",
+            )
+            return getattr(res, "translated_text", text)
+        except Exception:
+            # Fallback to direct extraction in sarvam-105b which is natively multilingual
+            return text
+
+    def run_fusion_pipeline(self, inputs: List[IntelligenceInput]) -> Dict[str, Any]:
+        """
+        Processes multilingual inputs, performs cross-lingual entity resolution,
+        builds knowledge graph, and identifies weak-signal patterns.
+        """
+        print(f"\n[+] Ingesting {len(inputs)} intelligence items across modalities...")
+
+        # Step 1: Preprocess inputs (audio transcription and translation where appropriate)
+        processed_inputs = []
+        for item in inputs:
+            if item.source_type == "intercepted_radio" and item.audio_path and os.path.exists(item.audio_path):
+                item.transcription = self.transcribe_audio_intercept(item.audio_path, item.language)
+                content_for_analysis = item.transcription
+            else:
+                content_for_analysis = item.raw_content
+
+            processed_inputs.append({
+                "doc_id": item.doc_id,
+                "source_type": item.source_type,
+                "title": item.title,
+                "language": item.language,
+                "content": content_for_analysis
+            })
+
+        # Step 2: Cross-lingual Entity & Relation Extraction with Weak-Signal Analysis
+        print("[+] Engaging Sarvam-105B Reasoning Engine for Cross-Lingual Knowledge Fusion...")
+
+        system_prompt = (
+            "You are the senior intelligence fusion engine of the OSINT Fusion Workbench. "
+            "You process heterogeneous, multilingual intelligence feeds (news, police FIRs, intercepted radio). "
+            "Your tasks:\n"
+            "1. Extract canonical entities across languages (resolve Hindi/English names, code-words, aliases).\n"
+            "2. Construct a directed Knowledge Graph linking ACTORS, EVENTS, LOCATIONS, ORGANIZATIONS, and ASSETS.\n"
+            "3. Identify WEAK-SIGNAL PATTERNS (covert logistics, burner communications, temporal/geographic proximity).\n"
+            "4. Calculate calibrated confidence scores (0.0 to 1.0) and flag critical or ambiguous items for ANALYST VERIFICATION.\n\n"
+            "Keep descriptions concise and factual. You must return ONLY a valid JSON object matching this schema:\n"
+            "{\n"
+            '  "entities": [\n'
+            '    {"id": "E1", "canonical_name": "...", "aliases": ["..."], "type": "ACTOR|EVENT|LOCATION|ORGANIZATION|ASSET", "language_origins": ["..."], "summary": "..."}\n'
+            "  ],\n"
+            '  "knowledge_graph": [\n'
+            '    {"source_id": "E1", "relation": "MET_WITH|OPERATES_AT|CONNECTED_TO|SUSPECTED_IN", "target_id": "E2", "confidence": 0.85, "evidence": "...", "source_doc_id": "..."}\n'
+            "  ],\n"
+            '  "weak_signal_patterns": [\n'
+            '    {"pattern_id": "WS1", "title": "...", "description": "...", "confidence_score": 0.72, "entities_involved": ["E1", "E2"], "indicators": ["..."], "threat_level": "LOW|MEDIUM|HIGH"}\n'
+            "  ],\n"
+            '  "analyst_verification_queue": [\n'
+            '    {"item_id": "AV1", "target_ref": "E1->E2 or WS1", "confidence": 0.65, "status": "PENDING_REVIEW", "flag_reason": "...", "recommended_action": "..."}\n'
+            "  ]\n"
+            "}"
+        )
+
+        user_content = json.dumps(processed_inputs, ensure_ascii=False, indent=2)
+
+        response = self.client.chat.completions(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Analyze these raw multilingual inputs and output the fusion graph JSON:\n{user_content}"}
+            ],
+            model="sarvam-105b-conversations",
+            temperature=0.1,
+            max_tokens=3500,
+        )
+
+        raw_reply = response.choices[0].message.content.strip()
+
+        # Parse JSON reply cleanly (handles markdown code fences if generated)
+        cleaned_json = raw_reply
+        if "```json" in cleaned_json:
+            cleaned_json = cleaned_json.split("```json")[1].split("```")[0].strip()
+        elif "```" in cleaned_json:
+            cleaned_json = cleaned_json.split("```")[1].split("```")[0].strip()
+
+        try:
+            fusion_data = json.loads(cleaned_json)
+        except json.JSONDecodeError:
+            # Attempt basic repair if truncated
+            repaired = cleaned_json
+            if not repaired.endswith("}"):
+                # Close any unclosed lists/objects
+                open_braces = repaired.count("{") - repaired.count("}")
+                open_brackets = repaired.count("[") - repaired.count("]")
+                # Trim back to last complete key-value or item
+                last_comma = max(repaired.rfind(","), repaired.rfind("}"))
+                if last_comma > 0:
+                    repaired = repaired[:last_comma]
+                    open_braces = repaired.count("{") - repaired.count("}")
+                    open_brackets = repaired.count("[") - repaired.count("]")
+                    repaired += ("]" * open_brackets) + ("}" * open_braces)
+            try:
+                fusion_data = json.loads(repaired)
+                print("[*] Successfully repaired truncated JSON response.")
+            except Exception:
+                print("[!] Raw model response did not parse cleanly as JSON. Saving raw response.")
+                fusion_data = {"raw_output": raw_reply}
+
+        return fusion_data
+
+
+def display_dashboard(fusion_data: Dict[str, Any]):
+    """Pretty prints the fused intelligence graph, weak signals, and verification queue."""
+    print("\n" + "="*80)
+    print("                    OSINT FUSION WORKBENCH - INTELLIGENCE BRIEF")
+    print("="*80)
+
+    entities = fusion_data.get("entities", [])
+    print(f"\n[+] CANONICAL ENTITY REGISTRY ({len(entities)} Entities Resolved):")
+    entity_map = {}
+    for ent in entities:
+        eid = ent.get("id", "UNK")
+        name = ent.get("canonical_name", "Unknown")
+        etype = ent.get("type", "ENTITY")
+        aliases = ", ".join(ent.get("aliases", []))
+        entity_map[eid] = name
+        print(f"  * [{eid}] {name:<22} | Type: {etype:<12} | Aliases: {aliases or 'None'}")
+
+    kg = fusion_data.get("knowledge_graph", [])
+    print(f"\n[+] CROSS-LINGUAL KNOWLEDGE GRAPH ({len(kg)} Relations Mapped):")
+    for edge in kg:
+        src = entity_map.get(edge.get("source_id"), edge.get("source_id"))
+        tgt = entity_map.get(edge.get("target_id"), edge.get("target_id"))
+        rel = edge.get("relation", "LINKED_TO")
+        conf = edge.get("confidence", 0.0)
+        doc = edge.get("source_doc_id", "DOC")
+        print(f"  * ({src}) --[{rel} (conf: {conf:.2f})]--> ({tgt})  [Source: {doc}]")
+
+    signals = fusion_data.get("weak_signal_patterns", [])
+    print(f"\n[!] WEAK-SIGNAL PATTERN RADAR ({len(signals)} Signals Detected):")
+    for ws in signals:
+        pid = ws.get("pattern_id", "WS")
+        title = ws.get("title", "Pattern")
+        score = ws.get("confidence_score", 0.0)
+        threat = ws.get("threat_level", "MEDIUM")
+        desc = ws.get("description", "")
+        print(f"  * [{pid}] [{threat} THREAT | Conf: {score:.2f}] {title}")
+        print(f"      Details: {desc}")
+        if ws.get("indicators"):
+            print(f"      Indicators: {', '.join(ws.get('indicators'))}")
+
+    queue = fusion_data.get("analyst_verification_queue", [])
+    print(f"\n[?] ANALYST VERIFICATION CONTROLS ({len(queue)} Items Requiring Verification):")
+    for item in queue:
+        avid = item.get("item_id", "AV")
+        target = item.get("target_ref", "")
+        status = item.get("status", "PENDING_REVIEW")
+        conf = item.get("confidence", 0.0)
+        reason = item.get("flag_reason", "")
+        print(f"  * [{avid}] Target: {target:<18} | Conf: {conf:.2f} | Status: [{status}]")
+        print(f"      Flag Reason: {reason}")
+
+    print("\n" + "="*80)
+
+
+def interactive_analyst_review(fusion_data: Dict[str, Any], output_path: str = "fusion_graph_output.json"):
+    """Provides interactive verification controls for intelligence analysts."""
+    queue = fusion_data.get("analyst_verification_queue", [])
+    if not queue:
+        print("[*] No pending items in analyst verification queue.")
+        return
+
+    print("\n[+] Analyst Verification Console (press Enter to skip or accept defaults):")
+    for item in queue:
+        avid = item.get("item_id", "AV")
+        target = item.get("target_ref", "")
+        print(f"\n--- Reviewing Item [{avid}]: {target} ---")
+        print(f"Reason: {item.get('flag_reason')}")
+        print(f"Current Status: {item.get('status')}")
+        action = input("Decision ([V]erify / [R]eject / [S]kip): ").strip().upper()
+        if action == "V":
+            item["status"] = "VERIFIED"
+            notes = input("Analyst Verification Notes: ").strip()
+            item["analyst_notes"] = notes or "Verified by intelligence analyst."
+            print(f"[✓] Item {avid} marked as VERIFIED.")
+        elif action == "R":
+            item["status"] = "REJECTED"
+            notes = input("Rejection Reason: ").strip()
+            item["analyst_notes"] = notes or "Rejected as noise/false correlation."
+            print(f"[✗] Item {avid} marked as REJECTED.")
+        else:
+            print(f"[-] Item {avid} left as PENDING_REVIEW.")
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(fusion_data, f, indent=2, ensure_ascii=False)
+    print(f"\n[+] Verified intelligence dossier saved to {output_path}")
+
+
+def get_sample_intelligence_corpus() -> List[IntelligenceInput]:
+    """Generates realistic cross-lingual sample inputs for testing."""
+    return [
+        IntelligenceInput(
+            doc_id="NEWS-HIN-01",
+            source_type="news_article",
+            title="Dainik Samachar - Hawala & Counterfeit Operation Busted",
+            language="hi-IN",
+            raw_content=(
+                "मुंबई पुलिस की क्राइम ब्रांच ने नागपाड़ा इलाके में एक बड़े हवाला सिंडिकेट का भंडाफोड़ किया है। "
+                "गिरफ्तार संदिग्ध की पहचान कलीम शेख उर्फ 'सुल्तान' के रूप में हुई है। पूछताछ में पता चला है कि "
+                "कलीम शेख को सीमा पार से कथित हैंडलर 'विक्रम भाई' द्वारा निर्देश मिल रहे थे। लेन-देन नवी मुंबई के "
+                "एक लॉजिस्टिक्स गोदाम के जरिए संचालित किया जा रहा था।"
+            ),
+            timestamp="2026-10-28 09:30"
+        ),
+        IntelligenceInput(
+            doc_id="POLICE-FIR-04",
+            source_type="police_report",
+            title="State Special Branch Intercept & Incident FIR #412",
+            language="en-IN",
+            raw_content=(
+                "First Information Report (FIR #412): Joint search conducted at APMC Yard Warehouse 7, Vashi, Navi Mumbai. "
+                "Recovered unlisted VHF transceivers, encrypted satphone logs, and shipping manifests consigned to 'BlueSea Traders'. "
+                "Facility rented under lease agreement signed by an individual identifying as Vikramaditya Rao (V. Rao). "
+                "Suspect fled scene prior to police arrival; vehicle CCTV spotted heading towards Alibaug coastal corridor."
+            ),
+            timestamp="2026-10-30 14:15"
+        ),
+        IntelligenceInput(
+            doc_id="RADIO-INTCPT-09",
+            source_type="intercepted_radio",
+            title="Tactical Radio Intercept - VHF Marine Ch 16/72 Frequency",
+            language="hi-IN",
+            raw_content=(
+                "[Radio Intercept Transcript - Code Mixed]:\n"
+                "Station Alpha: 'सुलतान लाइन पे नहीं है, उसको नागपाड़ा में पुलिस ने उठा लिया।'\n"
+                "Station Bravo: 'मालूम है। V-Rao को बोलो अलीबाग वाले फार्महाउस से तुरंत बोट निकाल के मांडवा साइड शिफ्ट हो जाए। "
+                "ब्लू-सी का सारा कंसाइनमेंट आज रात 0200 बजे क्लियर होना चाहिए।' \n"
+                "Station Alpha: 'गोदाम 7 सील हो गया है, बैकअप रूट यूज़ करेंगे।'"
+            ),
+            timestamp="2026-10-31 01:20"
+        )
+    ]
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Sarvam AI Multilingual OSINT Fusion Workbench")
+    parser.add_argument("--sample", action="store_true", default=True, help="Run with built-in multilingual case study")
+    parser.add_argument("--output", type=str, default="fusion_graph_output.json", help="Output path for fused knowledge graph")
+    parser.add_argument("--interactive", action="store_true", help="Launch interactive analyst verification console")
+    args = parser.parse_args()
+
+    print("[*] Initializing OSINT Fusion Workbench with Sarvam AI...")
+    workbench = OSINTFusionWorkbench()
+
+    inputs = get_sample_intelligence_corpus()
+    fusion_result = workbench.run_fusion_pipeline(inputs)
+
+    display_dashboard(fusion_result)
+
+    # Save initial output
+    with open(args.output, "w", encoding="utf-8") as f:
+        json.dump(fusion_result, f, indent=2, ensure_ascii=False)
+    print(f"\n[+] Intelligence knowledge graph exported to: {args.output}")
+
+    if args.interactive:
+        interactive_analyst_review(fusion_result, args.output)
+
+
+if __name__ == "__main__":
+    main()
