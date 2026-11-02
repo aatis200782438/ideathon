@@ -1,1 +1,218 @@
 
+{
+  "entities": [
+    {
+      "id": "E1",
+      "canonical_name": "Kalim Sheikh",
+      "aliases": [
+        "Sultan",
+        "कलीम शेख"
+      ],
+      "type": "ACTOR",
+      "language_origins": [
+        "hi-IN",
+        "en-IN"
+      ],
+      "summary": "Primary arrested suspect of hawala syndicate operating from Nagpada; codenamed 'Sultan' in radio intercepts."
+    },
+    {
+      "id": "E2",
+      "canonical_name": "Vikramaditya Rao",
+      "aliases": [
+        "Vikram Bhai",
+        "Vikramaditya Rao (V. Rao)"
+      ],
+      "type": "ACTOR",
+      "language_origins": [
+        "hi-IN",
+        "en-IN"
+      ],
+      "summary": "Suspected cross-border handler and facility lessee; referenced as 'Vikram Bhai' in news and 'V-Rao' in radio intercepts."
+    },
+    {
+      "id": "E3",
+      "canonical_name": "BlueSea Traders",
+      "aliases": [
+        "Blue-Sea"
+      ],
+      "type": "ORGANIZATION",
+      "language_origins": [
+        "en-IN",
+        "hi-IN"
+      ],
+      "summary": "Consignee entity on shipping manifests linked to the intercepted logistics warehouse operation."
+    },
+    {
+      "id": "E4",
+      "canonical_name": "APMC Yard Warehouse 7",
+      "aliases": [
+        "Warehouse 7",
+        "गोदाम 7"
+      ],
+      "type": "LOCATION",
+      "language_origins": [
+        "en-IN",
+        "hi-IN"
+      ],
+      "summary": "Navi Mumbai logistics warehouse (Vashi) leased under Vikramaditya Rao, site of recovered VHF transceivers and satphone logs."
+    },
+    {
+      "id": "E5",
+      "canonical_name": "Alibaug Coastal Corridor",
+      "aliases": [
+        "अलीबाग वाले फार्महाउस"
+      ],
+      "type": "LOCATION",
+      "language_origins": [
+        "hi-IN",
+        "en-IN"
+      ],
+      "summary": "Coastal evacuation route and suspected offshore transfer point referenced in radio intercept."
+    },
+    {
+      "id": "E6",
+      "canonical_name": "VHF Transceivers",
+      "aliases": [
+        "unlisted VHF transceivers"
+      ],
+      "type": "ASSET",
+      "language_origins": [
+        "en-IN"
+      ],
+      "summary": "Recovered communication equipment at Warehouse 7; used in tactical radio intercepts on Marine Ch 16/72."
+    },
+    {
+      "id": "E7",
+      "canonical_name": "Hawala Syndicate Operation",
+      "aliases": [
+        "हवाला सिंडिकेट"
+      ],
+      "type": "EVENT",
+      "language_origins": [
+        "hi-IN",
+        "en-IN"
+      ],
+      "summary": "Underground hawala and counterfeit logistics network busted by Mumbai Crime Branch in Nagpada."
+    }
+  ],
+  "knowledge_graph": [
+    {
+      "source_id": "E2",
+      "relation": "OPERATES_AT",
+      "target_id": "E4",
+      "confidence": 0.95,
+      "evidence": "FIR #412 lease agreement signed by Vikramaditya Rao (V. Rao); radio intercept 'V-Rao' directing operations from Alibaug farmhouse.",
+      "source_doc_id": "POLICE-FIR-04"
+    },
+    {
+      "source_id": "E2",
+      "relation": "SUSPECTED_IN",
+      "target_id": "E7",
+      "confidence": 0.88,
+      "evidence": "News report identifies 'Vikram Bhai' as cross-border handler directing Kalim Sheikh; radio confirms 'V-Rao' managing consignment clearance.",
+      "source_doc_id": "NEWS-HIN-01"
+    },
+    {
+      "source_id": "E2",
+      "relation": "CONNECTED_TO",
+      "target_id": "E3",
+      "confidence": 0.9,
+      "evidence": "Shipping manifests recovered at Warehouse 7 consigned to 'BlueSea Traders'.",
+      "source_doc_id": "POLICE-FIR-04"
+    },
+    {
+      "source_id": "E1",
+      "relation": "SUSPECTED_IN",
+      "target_id": "E7",
+      "confidence": 0.95,
+      "evidence": "Arrested suspect in Nagpada hawala bust; codenamed 'Sultan' in radio intercepts.",
+      "source_doc_id": "NEWS-HIN-01"
+    },
+    {
+      "source_id": "E1",
+      "relation": "MET_WITH",
+      "target_id": "E2",
+      "confidence": 0.82,
+      "evidence": "Interrogation reveals Kalim Sheikh received instructions from 'Vikram Bhai'.",
+      "source_doc_id": "NEWS-HIN-01"
+    },
+    {
+      "source_id": "E4",
+      "relation": "CONNECTED_TO",
+      "target_id": "E5",
+      "confidence": 0.85,
+      "evidence": "CCTV footage shows suspect vehicle fleeing toward Alibaug coastal corridor; radio intercept instructs boat extraction to Mandwa side.",
+      "source_doc_id": "POLICE-FIR-04"
+    },
+    {
+      "source_id": "E4",
+      "relation": "OPERATES_AT",
+      "target_id": "E6",
+      "confidence": 0.9,
+      "evidence": "Recovered unlisted VHF transceivers and encrypted satphone logs at Warehouse 7.",
+      "source_doc_id": "POLICE-FIR-04"
+    },
+    {
+      "source_id": "E5",
+      "relation": "CONNECTED_TO",
+      "target_id": "E3",
+      "confidence": 0.78,
+      "evidence": "Radio intercept 'Blue-Sea' consignment clearance scheduled from Alibaug farmhouse to Mandwa side at 0200 hrs.",
+      "source_doc_id": "RADIO-INTCPT-09"
+    }
+  ],
+  "weak_signal_patterns": [
+    {
+      "pattern_id": "WS1",
+      "title": "Burner Communication Pivot to Maritime Evacuation",
+      "description": "Post-raid shift from land-based warehouse (Warehouse 7) to coastal/maritime extraction (Alibaug farmhouse, Mandwa jetty) using VHF Marine Ch 16/72 and unlisted VHF transceivers.",
+      "confidence_score": 0.76,
+      "entities_involved": [
+        "E2",
+        "E4",
+        "E5",
+        "E6"
+      ],
+      "indicators": [
+        "CCTV-spotted vehicle heading to Alibaug corridor",
+        "Radio command to extract boat from farmhouse immediately",
+        "Consignment clearance shifted to 0200 hrs",
+        "Warehouse 7 sealed; backup route activated"
+      ],
+      "threat_level": "HIGH"
+    },
+    {
+      "pattern_id": "WS2",
+      "title": "Cross-Border Handler Continuity",
+      "description": "Alias linkage between 'Vikram Bhai' (news) and 'V-Rao' (radio/FIR) suggests persistent command-and-control despite local arrest of Kalim Sheikh.",
+      "confidence_score": 0.81,
+      "entities_involved": [
+        "E1",
+        "E2"
+      ],
+      "indicators": [
+        "News: 'Vikram Bhai' directing Kalim Sheikh from across border",
+        "FIR/Radio: 'V-Rao' leasing facility and directing post-raid logistics"
+      ],
+      "threat_level": "MEDIUM"
+    }
+  ],
+  "analyst_verification_queue": [
+    {
+      "item_id": "AV1",
+      "target_ref": "E2",
+      "confidence": 0.68,
+      "status": "PENDING_REVIEW",
+      "flag_reason": "Alias resolution between 'Vikram Bhai' and 'Vikramaditya Rao' is plausible but unverified by independent identity document or cross-border intelligence.",
+      "recommended_action": "Verify identity linkage via INTERPOL/NCB watchlists and cross-check lease agreement signature against known aliases."
+    },
+    {
+      "item_id": "AV2",
+      "target_ref": "WS1",
+      "confidence": 0.65,
+      "status": "PENDING_REVIEW",
+      "flag_reason": "Maritime evacuation at 0200 hrs is inferred from radio intercept and CCTV; no physical sighting of vessel or Mandwa-side activity confirmed.",
+      "recommended_action": "Task coastal surveillance and Mandwa jetty patrols to intercept suspected vessel and validate consignment clearance."
+    }
+  ]
+}
